@@ -1,0 +1,55 @@
+name: Update data and deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    # Dia 3 de cada mes, 12:00 UTC (el SIPC publica por trimestre).
+    - cron: "0 12 3 * *"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Intento de refresco automatico (best-effort). El portal gub.uy puede no
+      # responder a runners fuera de Uruguay; si falla o tarda, no bloquea el
+      # deploy y se publica el data.js commiteado (generado localmente).
+      - name: Run ETL and build web data
+        continue-on-error: true
+        timeout-minutes: 30
+        run: |
+          python -u src/etl.py
+          python -u src/build_web_data.py
+
+      - name: Commit refreshed data.js
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/data.js
+          git commit -m "chore: refresh price data [skip ci]" || echo "sin cambios"
+          git push || echo "nada para pushear"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend
+      - uses: actions/deploy-pages@v4

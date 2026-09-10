@@ -1,0 +1,13 @@
+# Datos crudos y warehouse (se regeneran con el ETL)
+data/raw/
+data/warehouse.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Sistema
+.DS_Store
+Thumbs.db
