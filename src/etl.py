@@ -52,13 +52,20 @@ def _slug(text):
     return re.sub(r"[^a-z0-9]+", "", text)
 
 
+def _detect_sep(path, enc):
+    """Detecta el separador (; , tab |) mirando la primera linea del archivo."""
+    with open(path, encoding=enc, errors="replace") as fh:
+        primera = fh.readline()
+    opciones = {";": primera.count(";"), ",": primera.count(","),
+                "\t": primera.count("\t"), "|": primera.count("|")}
+    mejor = max(opciones, key=opciones.get)
+    return mejor if opciones[mejor] > 0 else ";"
+
+
 def _read_encoded(path, **kw):
-    for enc in ("utf-8-sig", "utf-8", "latin-1"):
-        try:
-            return pd.read_csv(path, sep=";", encoding=enc, **kw)
-        except UnicodeDecodeError:
-            continue
-    return pd.read_csv(path, sep=";", encoding="latin-1", engine="python", **kw)
+    enc = _detect_encoding(path)
+    sep = _detect_sep(path, enc)
+    return pd.read_csv(path, sep=sep, encoding=enc, **kw)
 
 
 def _detect_encoding(path):
@@ -88,13 +95,13 @@ def _pick(columns, *candidates):
 
 
 def _to_number(series):
-    cleaned = (
-        series.astype(str)
-        .str.replace(r"[^\d,.\-]", "", regex=True)
-        .str.replace(".", "", regex=False)
-        .str.replace(",", ".", regex=False)
-    )
-    return pd.to_numeric(cleaned, errors="coerce")
+    """Precio en texto -> float, detectando el separador decimal (',' o '.')."""
+    s = series.astype(str).str.replace(r"[^\d,.\-]", "", regex=True)
+    if s.str.contains(",", regex=False).any():
+        # formato europeo: '.' miles, ',' decimal
+        s = s.str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
+    # si no hay comas, el '.' ya es decimal (formato tipo 80.50)
+    return pd.to_numeric(s, errors="coerce")
 
 
 def _detect_date_format(series):
@@ -242,7 +249,8 @@ def aggregate_precios(conn, est_map):
 
     usecols = [c for c in (col_prod, col_est, col_precio, col_fecha) if c]
     enc = _detect_encoding(path)
-    reader = pd.read_csv(path, sep=";", encoding=enc, usecols=usecols,
+    sep = _detect_sep(path, enc)
+    reader = pd.read_csv(path, sep=sep, encoding=enc, usecols=usecols,
                          chunksize=CHUNK_ROWS)
 
     partials, total = [], 0
