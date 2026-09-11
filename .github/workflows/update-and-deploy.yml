@@ -30,10 +30,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Intento de refresco automatico (best-effort). El portal gub.uy puede no
-      # responder a runners fuera de Uruguay; si falla o tarda, no bloquea el
-      # deploy y se publica el data.js commiteado (generado localmente).
+      # El ETL (bajar y procesar los ~2 GB) corre SOLO en el schedule mensual o
+      # a mano (workflow_dispatch), NUNCA en un push. Asi, cambiar el frontend
+      # (titulo, colores, textos) se publica al instante sin re-bajar los datos:
+      # el deploy usa el frontend/data.js ya commiteado por la ultima corrida.
       - name: Run ETL and build web data
+        if: github.event_name != 'push'
         continue-on-error: true
         timeout-minutes: 30
         run: |
@@ -41,6 +43,7 @@ jobs:
           python -u src/build_web_data.py
 
       - name: Commit refreshed data.js
+        if: github.event_name != 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

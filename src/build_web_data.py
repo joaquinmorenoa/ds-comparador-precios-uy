@@ -149,7 +149,9 @@ def build_ine(ipc):
         if not previos:
             return None
         base_idx = ipc[previos[-1]]
-    serie = [[m, round(base_val * ipc[m] / base_idx)] for m in sorted(ipc) if ipc[m]]
+    # Solo años recientes (moneda estable); el IPC llega mucho mas atras.
+    serie = [[m, round(base_val * ipc[m] / base_idx)]
+             for m in sorted(ipc) if ipc[m] and m >= "2015-01"]
     if not serie:
         return None
     return {

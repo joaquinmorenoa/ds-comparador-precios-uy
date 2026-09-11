@@ -504,14 +504,17 @@
 
     // ---------------- Canasta INE ----------------
     var ineChart = null;
+    var INE_DESDE = "2015-01";  // acota la serie a años recientes (moneda estable)
     function drawIne(){
       var ine = DATA.ine;
       if(!ine || !ine.serie || !document.getElementById("ineChart")) return;
+      var serie = ine.serie.filter(function(p){ return String(p[0]) >= INE_DESDE; });
+      if(!serie.length) serie = ine.serie;
       if(ineChart){ ineChart.destroy(); ineChart = null; }
       ineChart = new Chart(document.getElementById("ineChart"), {
         type:"line",
-        data:{ labels: ine.serie.map(function(p){ return mesLabel(p[0]); }),
-          datasets:[{ label:"Canasta INE", data: ine.serie.map(function(p){ return p[1]; }),
+        data:{ labels: serie.map(function(p){ return mesLabel(p[0]); }),
+          datasets:[{ label:"Canasta INE", data: serie.map(function(p){ return p[1]; }),
             borderColor:ACCENT, backgroundColor:"rgba(230,48,229,.10)", fill:true,
             tension:.2, borderWidth:2, pointRadius:0 }] },
         options:{ maintainAspectRatio:false, plugins:{legend:{display:false},
